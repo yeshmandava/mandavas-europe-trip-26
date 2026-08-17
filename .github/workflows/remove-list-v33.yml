@@ -1,0 +1,39 @@
+name: Remove List page
+on:
+  push:
+    paths:
+      - '.github/workflows/remove-list-v33.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove List navigation and page
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          s=s.replace('v32-cruise-port-weather','v33-no-list-page')
+          s=s.replace('grid-template-columns:repeat(4,1fr)','grid-template-columns:repeat(3,1fr)')
+          s=s.replace('<button id="bList" onclick="view=\'list\';render()">✓<br>List</button>','')
+          s=s.replace("function nav(){['Today','Cruise','Local','List'].forEach(x=>document.getElementById('b'+x).classList.toggle('on',view===x.toLowerCase()))}","function nav(){['Today','Cruise','Local'].forEach(x=>document.getElementById('b'+x).classList.toggle('on',view===x.toLowerCase()))}")
+          s=s.replace("function list(){return `<h2 style=\"font-family:Georgia,serif\">Departure essentials</h2><section class=\"card checklist\">${checklist.map((x,i)=>`<label><input type=\"checkbox\" ${done['c'+i]?'checked':''} onchange=\"toggle('c${i}')\"><span>${x}</span></label>`).join('')}</section>`}","")
+          s=s.replace("document.getElementById('app').innerHTML=view==='today'?today():view==='cruise'?cruisePage():view==='local'?local():list();","document.getElementById('app').innerHTML=view==='today'?today():view==='cruise'?cruisePage():local();")
+          p.write_text(s)
+          PY
+      - name: Validate List is gone
+        run: |
+          ! grep -q 'id="bList"' index.html
+          ! grep -q "view='list'" index.html
+          grep -q 'grid-template-columns:repeat(3,1fr)' index.html
+          grep -q 'v33-no-list-page' index.html
+      - name: Commit site
+        run: |
+          git config user.name 'Trip App Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Remove List page from navigation' || exit 0
+          git push
