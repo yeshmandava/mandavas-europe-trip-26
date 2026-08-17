@@ -13,26 +13,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch Uber universal link
+      - name: Patch Uber native ride-request links
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text()
-          old="const map=q=>'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(q),uber=q=>'https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff%5Bnickname%5D='+encodeURIComponent(q)+'&dropoff%5Bformatted_address%5D='+encodeURIComponent(q);"
-          new="const map=q=>'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(q),uber=q=>'https://m.uber.com/looking?pickup=my_location&drop%5B0%5D='+encodeURIComponent(JSON.stringify({addressLine1:q,addressLine2:q}));"
+          old="const map=q=>'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(q),uber=q=>'https://m.uber.com/looking?pickup=my_location&drop%5B0%5D='+encodeURIComponent(JSON.stringify({addressLine1:q,addressLine2:q}));"
+          new="const map=q=>'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(q),uber=q=>'uber://?action=setPickup&pickup=my_location&dropoff%5Bnickname%5D='+encodeURIComponent(q)+'&dropoff%5Bformatted_address%5D='+encodeURIComponent(q);"
           if old not in s:
-              raise SystemExit('Expected Uber helper not found; refusing unsafe patch')
+              raise SystemExit('Expected current Uber helper not found; refusing unsafe patch')
           s=s.replace(old,new,1)
-          s=s.replace('content=\"v26-git-rich\"','content=\"v27-uber-looking-drop-json\"',1)
+          s=s.replace('content=\"v27-uber-looking-drop-json\"','content=\"v28-uber-native-riderequest\"',1)
+          # Native custom-scheme navigation should occur in the current browsing context.
+          s=s.replace("href=\"${uber(i[6])}\" target=\"_blank\" class=\"uber\"", "href=\"${uber(i[6])}\" class=\"uber\"")
           p.write_text(s)
           PY
-      - name: Validate JavaScript syntax
+      - name: Validate JavaScript syntax and patch result
         run: |
           python - <<'PY'
           from pathlib import Path
           import re
           s=Path('index.html').read_text()
+          assert 'v28-uber-native-riderequest' in s
+          assert "uber://?action=setPickup&pickup=my_location" in s
+          assert 'dropoff%5Bnickname%5D=' in s
+          assert 'dropoff%5Bformatted_address%5D=' in s
           scripts=re.findall(r'<script>(.*?)</script>',s,re.S)
           for i,js in enumerate(scripts): Path(f'/tmp/app-{i}.js').write_text(js)
           print(f'Validated extraction of {len(scripts)} script block(s)')
@@ -43,5 +49,5 @@ jobs:
           git config user.name 'Trip App Bot'
           git config user.email 'actions@users.noreply.github.com'
           git add index.html
-          git commit -m 'Use Uber looking links with destination JSON'
+          git commit -m 'Use native Uber ride-request deep links'
           git push
