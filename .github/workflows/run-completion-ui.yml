@@ -1,0 +1,39 @@
+name: Apply completed agenda UI
+on:
+  push:
+    paths:
+      - '.github/workflows/run-completion-ui.yml'
+      - 'scripts/completion_ui.py'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply completion UI patch
+        run: python scripts/completion_ui.py
+      - name: Validate generated JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile
+          s=Path('index.html').read_text()
+          scripts=re.findall(r'<script>(.*?)</script>',s,re.S)
+          if not scripts: raise SystemExit('No script blocks found')
+          for i,js in enumerate(scripts):
+              p=Path(f'/tmp/check-{i}.js'); p.write_text(js)
+              r=subprocess.run(['node','--check',str(p)],capture_output=True,text=True)
+              if r.returncode: raise SystemExit(r.stderr)
+          for marker in ['v31-completion-sections','agendaDivider','function agendaItemsHtml(d)','uber://riderequest?pickup=my_location']:
+              if marker not in s: raise SystemExit('Missing '+marker)
+          print('v31 validation passed')
+          PY
+      - name: Commit generated site
+        run: |
+          git config user.name 'Trip App Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'Cross out completed agenda items and separate remaining plans'
+          git push
