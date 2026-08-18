@@ -1,0 +1,60 @@
+name: Hardcode Porto Uber links
+on:
+  push:
+    paths:
+      - '.github/workflows/hardcode-porto-uber-v37.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Hardcode exact Uber URLs
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          s=s.replace('v35-porto-visible-stops','v37-hardcoded-porto-uber').replace('v36-porto-uber-destinations','v37-hardcoded-porto-uber')
+          old="""function uber(q){
+ const d=uberDest[q]||[null,null,q,q];
+ let u='uber://riderequest?pickup=my_location';
+ if(d[0]!=null&&d[1]!=null) u+='&dropoff%5Blatitude%5D='+d[0]+'&dropoff%5Blongitude%5D='+d[1];
+ u+='&dropoff%5Bnickname%5D='+encodeURIComponent(d[2])+'&dropoff%5Bformatted_address%5D='+encodeURIComponent(d[3]);
+ return u;
+}"""
+          new="""const hardcodedUber={
+ 'Jardim do Morro Porto':'uber://riderequest?pickup=my_location&dropoff%5Blatitude%5D=41.13831&dropoff%5Blongitude%5D=-8.60927&dropoff%5Bnickname%5D=Jardim%20do%20Morro%20%2F%20Dom%20Lu%C3%ADs%20I%20Bridge&dropoff%5Bformatted_address%5D=Jardim%20do%20Morro%2C%204430-210%20Vila%20Nova%20de%20Gaia%2C%20Portugal',
+ 'Torre dos Clérigos Porto':'uber://riderequest?pickup=my_location&dropoff%5Blatitude%5D=41.14568&dropoff%5Blongitude%5D=-8.61462&dropoff%5Bnickname%5D=Torre%20dos%20Cl%C3%A9rigos&dropoff%5Bformatted_address%5D=R.%20de%20S%C3%A3o%20Filipe%20de%20Nery%2C%204050-546%20Porto%2C%20Portugal',
+ 'São Bento Station Porto':'uber://riderequest?pickup=my_location&dropoff%5Blatitude%5D=41.14556&dropoff%5Blongitude%5D=-8.61030&dropoff%5Bnickname%5D=S%C3%A3o%20Bento%20Station&dropoff%5Bformatted_address%5D=Pra%C3%A7a%20de%20Almeida%20Garrett%2C%204000-069%20Porto%2C%20Portugal',
+ 'Chapel of Souls Porto':'uber://riderequest?pickup=my_location&dropoff%5Blatitude%5D=41.14976&dropoff%5Blongitude%5D=-8.60543&dropoff%5Bnickname%5D=Chapel%20of%20Souls%20%28Capela%20das%20Almas%29&dropoff%5Bformatted_address%5D=Rua%20de%20Santa%20Catarina%20428%2C%204000-444%20Porto%2C%20Portugal',
+ 'Mercado do Bolhão Porto':'uber://riderequest?pickup=my_location&dropoff%5Blatitude%5D=41.14872&dropoff%5Blongitude%5D=-8.60728&dropoff%5Bnickname%5D=Mercado%20do%20Bolh%C3%A3o&dropoff%5Bformatted_address%5D=R.%20Formosa%20322%2C%204000-248%20Porto%2C%20Portugal'
+};
+function uber(q){
+ if(hardcodedUber[q])return hardcodedUber[q];
+ const d=uberDest[q]||[null,null,q,q];
+ let u='uber://riderequest?pickup=my_location';
+ if(d[0]!=null&&d[1]!=null)u+='&dropoff%5Blatitude%5D='+d[0]+'&dropoff%5Blongitude%5D='+d[1];
+ u+='&dropoff%5Bnickname%5D='+encodeURIComponent(d[2])+'&dropoff%5Bformatted_address%5D='+encodeURIComponent(d[3]);
+ return u;
+}"""
+          if old not in s: raise SystemExit('Uber function anchor not found')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+      - name: Validate hardcoded links
+        run: |
+          grep -q 'v37-hardcoded-porto-uber' index.html
+          grep -q "'Chapel of Souls Porto':'uber://riderequest?pickup=my_location" index.html
+          grep -q "'Mercado do Bolhão Porto':'uber://riderequest?pickup=my_location" index.html
+          grep -q "'Torre dos Clérigos Porto':'uber://riderequest?pickup=my_location" index.html
+          grep -q "'São Bento Station Porto':'uber://riderequest?pickup=my_location" index.html
+          grep -q "if(hardcodedUber\[q\])return hardcodedUber\[q\]" index.html
+      - name: Commit
+        run: |
+          git config user.name 'Trip App Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Hardcode Uber destinations for new Porto stops' || exit 0
+          git push
