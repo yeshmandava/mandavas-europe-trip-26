@@ -1,0 +1,47 @@
+name: Fix new Porto Uber destinations
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-new-porto-uber-v36.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add exact Uber destination metadata
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          s=s.replace('v35-porto-visible-stops','v36-porto-uber-destinations')
+          anchor="const uberDest={"
+          if anchor not in s: raise SystemExit('uberDest map not found')
+          additions="""
+'Torre dos Clérigos Porto':[41.14568,-8.61462,'Torre dos Clérigos','R. de São Filipe de Nery, 4050-546 Porto, Portugal'],
+'São Bento Station Porto':[41.14556,-8.61030,'São Bento Station','Praça de Almeida Garrett, 4000-069 Porto, Portugal'],
+'Chapel of Souls Porto':[41.14976,-8.60543,'Chapel of Souls (Capela das Almas)','Rua de Santa Catarina 428, 4000-444 Porto, Portugal'],
+'Mercado do Bolhão Porto':[41.14872,-8.60728,'Mercado do Bolhão','R. Formosa 322, 4000-248 Porto, Portugal'],
+'Jardim do Morro Porto':[41.13831,-8.60927,'Jardim do Morro / Dom Luís I Bridge','Jardim do Morro, 4430-210 Vila Nova de Gaia, Portugal'],
+"""
+          s=s.replace(anchor,anchor+additions,1)
+          p.write_text(s)
+          PY
+      - name: Validate exact Uber entries
+        run: |
+          grep -q 'v36-porto-uber-destinations' index.html
+          grep -q "'Chapel of Souls Porto':\[41.14976,-8.60543" index.html
+          grep -q "'Mercado do Bolhão Porto':\[41.14872,-8.60728" index.html
+          grep -q "'Torre dos Clérigos Porto':\[41.14568,-8.61462" index.html
+          grep -q "'São Bento Station Porto':\[41.14556,-8.61030" index.html
+          grep -q "'Jardim do Morro Porto':\[41.13831,-8.60927" index.html
+          grep -q "uber://riderequest" index.html
+      - name: Commit
+        run: |
+          git config user.name 'Trip App Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Fix Uber autofill for newly added Porto stops' || exit 0
+          git push
