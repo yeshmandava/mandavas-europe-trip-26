@@ -1,0 +1,50 @@
+name: Add Porto and Sintra itinerary stops
+on:
+  push:
+    paths:
+      - '.github/workflows/precruise-porto-sintra-v34.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch itinerary
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          s=s.replace('v33-no-list-page','v34-porto-sintra-additions')
+          old="""['11:35–12:30','🌉','Dom Luís I → Jardim do Morro','Cross the upper deck toward Gaia.','Ribeira roofs + Douro.','Add Serra do Pilar only if moving well.','Jardim do Morro Porto'],['12:30–13:30','🥗','Veg-inclusive lunch','daTerra Baixa is the safest mixed-family choice.','Keep lunch near one hour.','Casa Guedes optional for meat eaters.','daTerra Baixa Porto'],['13:30–14:15','🌊','Ribeira waterfront','Slow down along the riverfront.','Cais da Ribeira + lower bridge.','Coffee or cold drink.','Ribeira Porto'],['14:15–15:00','⛴️','Six Bridges cruise · optional','Do it only if queues are short.','River-level city perspective.','First thing to cut if timing slips.','Ribeira Porto'],['15:00–16:20','🚶','Rua das Flores → São Bento','Walk inland and enter São Bento.','Blue-and-white azulejo panels.','Fábrica da Nata nearby.','São Bento Station Porto'],['17:25–18:40','🚕','Campanhã buffer + return train'"""
+          new="""['11:35–12:20','🌉','Dom Luís I Bridge → Jardim do Morro','Cross the upper deck toward Gaia, then take in the Jardim do Morro panorama.','Ribeira roofs, Douro and the bridge itself.','Add Serra do Pilar only if moving well.','Jardim do Morro Porto'],['12:20–13:10','🥗','Veg-inclusive lunch','daTerra Baixa is the safest mixed-family choice.','Keep lunch near 50 minutes.','Casa Guedes optional for meat eaters.','daTerra Baixa Porto'],['13:10–13:45','🌊','Ribeira waterfront','Slow down along the riverfront before heading uphill.','Cais da Ribeira + lower bridge views.','Coffee or cold drink if needed.','Ribeira Porto'],['13:45–14:20','⛪','Torre dos Clérigos','Walk via Rua das Flores to Porto’s landmark baroque tower.','Clérigos Church and tower exterior; climb only if queues are short.','Skip the climb if timing is tight.','Torre dos Clérigos Porto'],['14:25–14:55','🚉','São Bento Station','Continue east for the famous azulejo-lined station hall.','Blue-and-white historical tile panels.','A quick high-value stop on the route.','São Bento Station Porto'],['15:00–15:30','💙','Chapel of Souls','Head toward Bolhão for the blue-and-white tiled chapel façade.','Exterior azulejos are the main event.','Pairs naturally with Mercado do Bolhão.','Capela das Almas Porto'],['15:30–16:15','🛍️','Mercado do Bolhão','Browse the restored historic market for local produce, snacks and atmosphere.','Market hall, local vendors and Portuguese products.','Good place for a snack without a full sit-down meal.','Mercado do Bolhão Porto'],['16:15–17:10','🚕','Ride to Campanhã + station buffer','Leave central Porto with a generous train buffer.','Campanhã departure boards and platform.','Do not sacrifice the 18:40 train for another stop.','Porto Campanhã Station'],['17:25–18:40','🚕','Campanhã buffer + return train'"""
+          if old not in s: raise SystemExit('Porto anchor not found')
+          s=s.replace(old,new,1)
+          old2="""['12:45–13:40','🥙','Quick veg-inclusive lunch','Piadina’s is fast and mixed-diet friendly.','Stay near the historic center.','Vegan artisan burger is a safe option.',\"Piadina's Wine & Co Sintra\"],['13:40–14:15','🏘️','Historic center → Regaleira','Walk to Quinta da Regaleira and arrive early.','National Palace exterior if timing permits.','Do not join another attraction line.','Quinta da Regaleira Sintra'],['14:30–16:30','🌀','Quinta da Regaleira','The day’s fixed anchor.','Initiation Well, tunnels, grottoes, chapel.','Shoes with grip help.','Quinta da Regaleira Sintra'],['16:30–17:20','🥐','Casa Piriquita','Classic Sintra pastry stop.','Historic center atmosphere.','Share one travesseiro + one queijada.','Casa Piriquita Sintra']"""
+          new2="""['12:45–13:35','🥙','Quick veg-inclusive lunch','Piadina’s is fast and mixed-diet friendly.','Stay near the historic center.','Vegan artisan burger is a safe option.',\"Piadina's Wine & Co Sintra\"],['13:35–14:15','🏘️','Historic center → Regaleira','Walk to Quinta da Regaleira and arrive early.','National Palace exterior if timing permits.','Pena Palace is the alternative major sight, but do not attempt both Pena and Regaleira on this schedule.','Quinta da Regaleira Sintra'],['14:30–16:30','🌀','Quinta da Regaleira · recommended','Keep Regaleira as the major palace/estate for this day; choose Pena Palace instead only if you decide to swap the reservation/plan.','Initiation Well, tunnels, grottoes and chapel.','Regaleira fits the existing route better than adding Pena as a second major attraction.','Quinta da Regaleira Sintra'],['16:30–17:20','🥐','Casa Piriquita · Sintra pastries','Finish with Sintra’s two signature sweets.','Historic center atmosphere.','Try one travesseiro and one queijada and share both.','Casa Piriquita Sintra']"""
+          if old2 not in s: raise SystemExit('Sintra anchor not found')
+          s=s.replace(old2,new2,1)
+          p.write_text(s)
+          PY
+      - name: Validate
+        run: |
+          grep -q 'v34-porto-sintra-additions' index.html
+          grep -q 'Torre dos Clérigos' index.html
+          grep -q 'Chapel of Souls' index.html
+          grep -q 'Mercado do Bolhão' index.html
+          grep -q 'Pena Palace is the alternative' index.html
+          grep -q 'one travesseiro and one queijada' index.html
+          node --check <(python3 - <<'PY'
+          import re
+          s=open('index.html').read()
+          print('\n'.join(re.findall(r'<script>(.*?)</script>',s,re.S)))
+          PY
+          )
+      - name: Commit
+        run: |
+          git config user.name 'Trip App Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Incorporate Porto and Sintra additions by proximity' || exit 0
+          git push
