@@ -1,0 +1,45 @@
+name: Patch missing Uber destinations
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-uber-root-cause-v38.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add missing destinations to uberDest
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          s=s.replace('v35-porto-visible-stops','v38-uber-root-cause-fixed')
+          anchor="'Porto Cathedral':[41.14282,-8.61120,'Porto Cathedral','Terreiro da Sé, 4050-573 Porto, Portugal'],"
+          if anchor not in s: raise SystemExit('Porto Cathedral uberDest anchor missing')
+          insert=anchor+"""
+'Torre dos Clérigos Porto':[41.14568,-8.61462,'Torre dos Clérigos','R. de São Filipe de Nery, 4050-546 Porto, Portugal'],
+'Chapel of Souls Porto':[41.14976,-8.60543,'Chapel of Souls','Rua de Santa Catarina 428, 4000-444 Porto, Portugal'],
+'Mercado do Bolhão Porto':[41.14872,-8.60728,'Mercado do Bolhão','R. Formosa 322, 4000-248 Porto, Portugal'],
+"""
+          s=s.replace(anchor,insert,1)
+          # Existing São Bento and Jardim do Morro entries already work; retain them unchanged.
+          p.write_text(s)
+          PY
+      - name: Validate production source logic
+        run: |
+          grep -q 'v38-uber-root-cause-fixed' index.html
+          grep -q "'Torre dos Clérigos Porto':\[41.14568,-8.61462" index.html
+          grep -q "'Chapel of Souls Porto':\[41.14976,-8.60543" index.html
+          grep -q "'Mercado do Bolhão Porto':\[41.14872,-8.60728" index.html
+          grep -q "const d=uberDest\[q\]||\[null,null,q,q\]" index.html
+          grep -q 'uber://riderequest?pickup=my_location' index.html
+      - name: Commit corrected index
+        run: |
+          git config user.name 'Trip App Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Fix root cause for new Porto Uber autofill' || exit 0
+          git push
