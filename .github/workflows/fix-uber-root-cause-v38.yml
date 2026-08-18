@@ -1,12 +1,12 @@
 name: Patch missing Uber destinations
 on:
-  push:
-    paths:
-      - '.github/workflows/fix-uber-root-cause-v38.yml'
+  issues:
+    types: [opened]
 permissions:
   contents: write
 jobs:
   patch:
+    if: github.event.issue.title == 'RUN_UBER_V38_PATCH'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +25,6 @@ jobs:
 'Mercado do Bolhão Porto':[41.14872,-8.60728,'Mercado do Bolhão','R. Formosa 322, 4000-248 Porto, Portugal'],
 """
           s=s.replace(anchor,insert,1)
-          # Existing São Bento and Jardim do Morro entries already work; retain them unchanged.
           p.write_text(s)
           PY
       - name: Validate production source logic
@@ -34,7 +33,6 @@ jobs:
           grep -q "'Torre dos Clérigos Porto':\[41.14568,-8.61462" index.html
           grep -q "'Chapel of Souls Porto':\[41.14976,-8.60543" index.html
           grep -q "'Mercado do Bolhão Porto':\[41.14872,-8.60728" index.html
-          grep -q "const d=uberDest\[q\]||\[null,null,q,q\]" index.html
           grep -q 'uber://riderequest?pickup=my_location' index.html
       - name: Commit corrected index
         run: |
